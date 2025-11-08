@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FINAL FANTASY XIV Task Tool Kit</title>
+<style>
+  :root{
+    --bg:#f6fbff;
+    --fg:#111;
+    --card:#ffffffdd;
+    --border:#cfd8dc;
+    --accent:#10b981;
+    --accent-2:#059669;
+    --muted:#64748b;
+    --input-bg:#fff;
+    --input-fg:#111;
+    --input-ph:#64748b;
+    --surface-2:#f3f5f8;
+    --surface-3:#e8edf3;
+    --text:var(--fg);
+    --success:#2f8f4e;   /* calm green */
+    --success-hover:#2a7f45;
+  }
+  body.tarkov{
+    --bg:#0b0b0d;
+    --fg:#f6f7fb;
+    --card:#1a1b1f;
+    --border:#34363b;
+    --accent:#16a34a;
+    --accent-2:#22c55e;
+    --muted:#c5cad6;
+    --input-bg:#2a2b31;
+    --input-fg:#f6f7fb;
+    --input-ph:#b6bcc9;
+    --surface-2:#202229;
+    --surface-3:#2a2c33;
+    --text:#f6f7fb;
+    --success:#3a9b58;
+    --success-hover:#358a50;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif}
+  header{position:sticky;top:0;z-index:3;background:linear-gradient(180deg, var(--bg), transparent);backdrop-filter:saturate(140%) blur(6px);padding:14px 16px 8px}
+  h1{font-size:16px;margin:0 10px 0 0}
+  main{padding:16px 20px 96px}
+  nav.tabs{display:flex;gap:8px;align-items:center;margin:6px 0 14px;position:relative;z-index:1}
+  .row{display:flex;align-items:center;gap:10px}
+  .right{margin-left:auto}
+  .card{border:1px solid var(--border);background:var(--card);border-radius:12px;padding:12px}
+  .hoverable{transition:transform .06s ease, box-shadow .06s ease}
+  .hoverable:hover{transform:translateY(-1px);box-shadow:0 4px 16px color-mix(in srgb, var(--fg), transparent 90%)}
+  .btn{border:1px solid var(--border);background:var(--input-bg);color:var(--input-fg);border-radius:10px;padding:7px 10px;cursor:pointer;transition:background-color .12s ease, filter .12s ease, color .12s ease}
+  .btn.primary{background:var(--surface-3);color:var(--text);box-shadow: inset 0 0 0 1px var(--border)}
+  .btn.success{background:var(--success); color:#fff; border-color: color-mix(in srgb, var(--success), black 18%);}
+  .btn.success:hover{background:var(--success-hover);}
+  .btn:hover{filter:brightness(1.04)}
+  .pill{border-radius:999px;padding:6px 12px}
+  .pill{cursor:pointer; background:var(--input-bg)}
+  .pill:hover{ background: color-mix(in srgb, var(--accent), transparent 85%); }
+  .pill.active{ background: color-mix(in srgb, var(--accent), transparent 70%); }
+  .muted{color:var(--muted)}
+  .grid{display:grid;gap:10px}
+  .g-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .progress{height:8px;background:color-mix(in srgb, var(--accent), transparent 85%);border-radius:999px;overflow:hidden}
+  .progress>div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px}
+
+  /* clocks */
+  #etTime, #ltTime { font-size: 20px; }
+  #etDate, #ltDate { font-size: 13px !important; }
+
+  /* overview table – keep title one-line, memo wraps */
+  #overview-all-tasks table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  #overview-all-tasks th{font-weight:600;text-align:left;font-size:12px;color:var(--muted)}
+  #overview-all-tasks td{vertical-align:top}
+  .task-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width: 360px}
+  @media (max-width:1100px){ .task-title{ max-width:240px } }
+  @media (max-width:800px){ .task-title{ max-width:160px } }
+  @media (max-width:640px){ .task-title{ max-width:120px } }
+  .task-notes{word-break:break-word;white-space:normal}
+
+  /* file input (button-only) */
+  .file-input{ position:relative; display:inline-block }
+  .file-input .fake{ pointer-events:none }
+  .file-input input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer }
+
+  /* tasks list compaction */
+  #taskList .card{ padding:6px 8px; }
+  #taskList .drag-handle{ user-select:none; cursor:grab; padding:6px 10px; border:1px solid var(--border); border-radius:10px; }
+  #taskList .drag-handle:active{ cursor:grabbing }
+
+  /* global drag handle for consistent DnD affordance (used in Links too) */
+  .drag-handle{ user-select:none; cursor:grab; padding:6px 10px; border:1px solid var(--border); border-radius:10px; }
+  .drag-handle:active{ cursor:grabbing }
+
+
+  /* archive layout 60/40 */
+  #tab-archive .archive-grid{ display:grid; grid-template-columns:60% 40%; gap:16px; align-items:start }
+  @media (max-width:1080px){ #tab-archive .archive-grid{ grid-template-columns:1fr } }
+  #tab-archive .memo-card{ height:420px; display:flex; flex-direction:column }
+  #tab-archive .memo-card textarea{ flex:1 1 auto; min-height:0; overflow:auto; resize:none }
+
+  /* links table & drag */
+  #tab-links table{ width:100%; border-collapse:separate; border-spacing:0 8px }
+  #tab-links th{font-weight:600;text-align:left;font-size:12px;color:var(--muted)}
+  .drag-placeholder td{height: 44px; border:2px dashed var(--border); border-radius:10px; background: color-mix(in srgb, var(--accent), transparent 88%); }
+
+  /* sfx rows */
+  .sfx-row{display:grid;grid-template-columns: 1fr 140px 180px auto;gap:10px;align-items:center}
+  @media (max-width:900px){
+    .sfx-row{grid-template-columns: 1fr;gap:6px}
+  }
+
+  /* inputs */
+  input,textarea,select{width:100%;background:var(--input-bg);color:var(--input-fg);border:1px solid var(--border);border-radius:10px;padding:8px 10px}
+  input::placeholder,textarea::placeholder{color:var(--input-ph)}
+
+  /* focus ring */
+  .btn:focus-visible, .pill:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent), white 20%);
+    outline-offset: 2px;
+  }
+
+  .btn.done-btn{ margin-right: 12px; }
+  .btn.revert:hover{ background: color-mix(in srgb, var(--muted), transparent 82%); }
+
+
+  /* overview grid 6:4 two rows */
+  #tab-overview.overview-grid{ display:grid; grid-template-columns: 3fr 2fr; grid-auto-rows:minmax(10px,auto); gap:20px; align-items:start; min-width:1120px; }
+  
+
+
+  #tab-overview{ overflow-x:auto; }
+
+  /* 金策タブの収益表示幅調整 */
+  #revenue, .revenue-value { width: 100% !important; font-size: 1rem; }
+
+  /* 金策タブ 各入力欄の横幅をやや狭く */
+  #financeTab input[type="text"],
+  #financeTab input[type="number"],
+  #financeTab select {
+    width: 85% !important;
+  }
+
+
+  /* 金策テーブルの各入力幅をやや狭く */
+  #profitBody input[type="text"],
+  #profitBody input[type="number"]{
+    width: 80% !important;
+  }
+
+
+  /* 金策タブ 入力欄間の余白を除去し左詰め配置 */
+  #profitBody td { padding: 0 2px !important; }
+  #profitBody input[type="text"],
+  #profitBody input[type="number"] {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 4px 6px !important;
+    box-sizing: border-box !important;
+  }
+
+
+  /* 金策タブ 入力欄間の余白を完全に削除し左詰め配置 */
+  #profitBody {
+    border-collapse: collapse !important;
+  }
+  #profitBody td {
+    padding: 0 !important;
+  }
+  #profitBody input[type="text"],
+  #profitBody input[type="number"] {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 4px 6px !important;
+    box-sizing: border-box !important;
+  }
+  #tab-kinkaku table {
+    border-spacing: 0 !important;
+  }
+
+
+  /* 金策タブ 入力欄幅＆スペース調整 */
+  #tab-kinkaku table {
+    border-spacing: 4px !important; /* 少しだけ余白 */
+  }
+  #profitBody td {
+    padding: 0 !important;
+  }
+  #profitBody input[type="text"],
+  #profitBody input[type="number"] {
+    width: 65% !important;  /* 入力欄をさらに狭く */
+    margin: 0 !important;
+    padding: 4px 6px !important;
+    box-sizing: border-box !important;
+  }
+  #profitBody td[data-role="profit"] {
+    width: 110px !important;  /* 収益欄を広く */
+  }
+
+
+  /* 金策テーブル: 見た目整理（固定カラム幅・微小スペース・右寄せ数値） */
+  table.table:has(#profitBody) { table-layout: fixed !important; border-spacing: 6px !important; }
+  #profitBody td { padding: 0 !important; vertical-align: middle; }
+  #profitBody input[type="text"], #profitBody input[type="number"] {
+    width: 100% !important; margin: 0 !important; padding: 4px 6px !important; box-sizing: border-box !important;
+  }
+  #profitBody input[type="number"] { text-align: right; }
+  #profitBody td[data-role="profit"] { font-weight: 600; text-align: right; }
+
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>FINAL FANTASY XIV Task Tool Kit</h1>
+    <!-- reordered & renamed toolbar -->
+    <button class="btn" id="themeBtn">Tarkov Version</button>
+    <button class="btn" id="backupBtn">バックアップ</button>
+    <button class="btn" id="exportBtn">エクスポートファイル</button>
+    <label class="btn">インポートファイル <input type="file" id="importJson" accept="application/json" style="display:none"></label>
+    <button class="btn" id="resetBtn">初期化</button>
+
+    <div class="right row card" style="padding:8px 12px;">
+      <div>
+        <div class="muted" style="font-size:12px">Eorzea Time</div>
+        <div><b id="etTime">--:--</b> <span class="muted">ET</span></div>
+        <div class="muted" id="etDate" style="font-size:12px">----/--/--</div>
+      </div>
+      <div style="width:1px;background:var(--border);margin:0 8px;"></div>
+      <div>
+        <div class="muted" style="font-size:12px">Local (<span id="tz"></span>)</div>
+        <div><b id="ltTime">--:--</b> <span class="muted">LT</span></div>
+        <div class="muted" id="ltDate" style="font-size:12px">----/--/--</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <nav class="tabs">
+    <button class="btn pill active" data-tab="overview" title="概要と進捗">メインパネル</button>
+    <button class="btn pill" data-tab="tasks" title="タスクの編集と進行度">タスク詳細</button>
+    <button class="btn pill" data-tab="archive" title="完了タスクとメモ">コンプリートBOX・メモ</button>
+    <button class="btn pill" data-tab="kinkaku" title="金策シート">金策</button>
+    <button class="btn pill" data-tab="links" title="お気に入りリンク">関連サイト一覧</button>
+    <div class="right"></div>
+  </nav>
+
+  <!-- Overview -->
+  
+  <section id="tab-overview" class="overview-grid">
+    <!-- Top Left: Progress (6) -->
+    <div class="card" id="progressBox" style="grid-column:1">
+      <div class="row" style="justify-content:space-between">
+        <div><b>進捗</b> <span class="chip"><span id="progressPct">0%</span></span></div>
+        <span class="chip">Complete: <span id="progressDone">0</span> / <span id="progressTotal">0</span></span>
+      </div>
+      <div class="progress" style="margin-top:8px"><div id="progressBar" style="width:0%"></div></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn pill" data-filter="daily">デイリー</button>
+        <button class="btn pill" data-filter="weekly">ウィークリー</button>
+        <button class="btn pill" data-filter="goal">目標</button>
+        <button class="btn pill" data-filter="all">全て</button>
+      </div>
+    </div>
+
+    <!-- Top Right: Announcements (4) -->
+    <div class="card" id="announcements" style="grid-column:2">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <b>公式アナウンス</b>
+        <span class="muted" style="font-size:12px">※ クリックで公式ページを新規タブで開きます</span>
+      </div>
+      <div class="grid" style="grid-template-columns: repeat(2,minmax(0,1fr)); gap:12px; margin-top:8px">
+        <div class="card hoverable row" style="justify-content:space-between;gap:12px">
+          <div>
+            <b>Lodestone ニュース</b>
+            <div class="muted" style="font-size:12px">FFXIV 公式サイトの告知・メンテ情報など</div>
+          </div>
+          <button class="btn" onclick="window.open('https://jp.finalfantasyxiv.com/lodestone/news/','_blank')">開く</button>
+        </div>
+        <div class="card hoverable row" style="justify-content:space-between;gap:12px">
+          <div>
+            <b>X（旧Twitter）公式ニュース</b>
+            <div class="muted" style="font-size:12px">@FFXIV_NEWS_JP</div>
+          </div>
+          <button class="btn" onclick="window.open('https://x.com/FFXIV_NEWS_JP','_blank')">開く</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Left: Task List (6) -->
+    <div class="card" id="overview-all-tasks" style="grid-column:1">
+      <div class="row" style="justify-content:space-between; align-items:center">
+        <b>タスク一覧</b>
+        <span class="muted" style="font-size:12px">※ 左の「完了」でコンプリートBOXへ移動</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:80px">操作</th>
+            <th>タスクタイトル</th>
+            <th style="width:220px">報酬内容</th>
+            <th style="width:40%">タスクメモ</th>
+          </tr>
+        </thead>
+        <tbody id="overviewTaskTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Bottom Right: New Task (4) -->
+    <div class="card" id="newTaskCard" style="grid-column:2">
+      <div class="row" style="justify-content:space-between"><b>新規タスク</b></div>
+      <form class="grid g-2" id="newTaskForm" style="margin-top:8px">
+        <div>
+          <label class="muted" for="nt-title">タイトル</label>
+          <input id="nt-title" placeholder="例: モーグリデイリー" required type="text"/>
+        </div>
+        <div>
+          <label class="muted" for="nt-type">ジャンル</label>
+          <select id="nt-type">
+            <option value="daily">デイリー</option>
+            <option value="weekly">ウィークリー</option>
+            <option value="goal">目標（期限）</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="muted" for="nt-reward">報酬</label>
+          <input id="nt-reward" placeholder="例: ギル / トーム / 素材" type="text"/>
+        </div>
+
+        <div id="nt-due-wrap">
+          <label class="muted" for="nt-due-year">期限（目標のみ）</label>
+          <div class="row" style="gap:8px">
+            <select id="nt-due-year" style="max-width:120px"></select>
+            <select id="nt-due-month" style="max-width:100px"></select>
+            <select id="nt-due-day" style="max-width:100px"></select>
+            <input type="hidden" id="nt-due" value="">
+          </div>
+        </div>
+
+        <div>
+          <label class="muted" for="nt-notes">メモ</label>
+          <textarea id="nt-notes" placeholder="簡単な備考など" rows="3"></textarea>
+        </div>
+        <button class="btn success" type="submit">追加</button>
+      </form>
+      <div class="muted" style="margin-top:8px;font-size:12px;border-top:1px solid var(--border);padding-top:8px">
+        ・デイリーは日付、ウィークリーは週初め(月)で自動リセット
+      </div>
+
+      <details class="card hoverable" style="margin-top:12px">
+        <summary class="btn">サウンド設定</summary>
+        <div style="margin-top:8px;display:grid;gap:12px">
+          <div class="row" style="gap:16px;align-items:center">
+            <label style="min-width:90px">マスター音量</label>
+            <input id="sfxVol" type="range" min="0" max="1" step="0.05" style="flex:1"/>
+            <label class="row" style="gap:6px;min-width:90px"><input id="sfxMute" type="checkbox"/> ミュート</label>
+          </div>
+
+          <div class="sfx-row">
+            <div class="muted">タブ切替</div>
+            <div class="file-input"><button class="btn fake">ファイル選択</button><input id="sfxFile-tab" type="file" accept="audio/*"/></div>
+            <div class="row"><span class="muted">音量</span><input id="sfxVol-tab" type="range" min="0" max="1" step="0.05"/></div>
+            <div class="row"><button class="btn" id="sfxPlay-tab">試聴</button><button class="btn" id="sfxClear-tab">クリア</button></div>
+          </div>
+
+          <div class="sfx-row">
+            <div class="muted">完了</div>
+            <div class="file-input"><button class="btn fake">ファイル選択</button><input id="sfxFile-complete" type="file" accept="audio/*"/></div>
+            <div class="row"><span class="muted">音量</span><input id="sfxVol-complete" type="range" min="0" max="1" step="0.05"/></div>
+            <div class="row"><button class="btn" id="sfxPlay-complete">試聴</button><button class="btn" id="sfxClear-complete">クリア</button></div>
+          </div>
+
+          <div class="sfx-row">
+            <div class="muted">戻す</div>
+            <div class="file-input"><button class="btn fake">ファイル選択</button><input id="sfxFile-restore" type="file" accept="audio/*"/></div>
+            <div class="row"><span class="muted">音量</span><input id="sfxVol-restore" type="range" min="0" max="1" step="0.05"/></div>
+            <div class="row"><button class="btn" id="sfxPlay-restore">試聴</button><button class="btn" id="sfxClear-restore">クリア</button></div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+
+  <!-- Tasks -->
+  <section id="tab-tasks" style="display:none;flex-direction:column;gap:12px">
+    <div class="card">
+      <nav class="tabs" style="margin-top:6px">
+        <button class="btn pill" data-subfilter="daily">デイリー</button>
+        <button class="btn pill" data-subfilter="weekly">ウィークリー</button>
+        <button class="btn pill" data-subfilter="goal">目標</button>
+        <button class="btn pill" data-subfilter="all">全て</button>
+      </nav>
+      <div class="row" style="justify-content:space-between"><b>未完了</b><span class="chip">合計 <span id="taskCount">0</span></span></div>
+      <div id="taskList" style="margin-top:6px;display:grid;gap:4px"></div>
+    </div>
+  </section>
+
+  <!-- Archive -->
+  <section id="tab-archive" style="display:none">
+    <div class="archive-grid">
+      <div class="card" id="completeCard">
+        <div class="row" style="justify-content:space-between">
+          <b>コンプリートBOX</b>
+          <span class="chip"><span id="archCount">0</span> 件</span>
+        </div>
+        <div id="archList" style="margin-top:8px;display:grid;gap:8px"></div>
+      </div>
+      <div class="card memo-card" id="memoCard">
+        <b>メモ</b>
+        <textarea id="memo" placeholder="自由メモ" rows="6"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- Kinkaku -->
+  <section class="grid g-2" id="tab-kinkaku" style="display:none;margin-top:12px">
+    <div class="card" style="grid-column:1/-1">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <b>金策シート</b>
+        <button class="btn" id="addProfitRow">＋行を追加</button>
+      </div>
+      <div class="muted" style="font-size:12px">数値入力で純利益と合計を自動算出します。</div>
+      <table class="table" style="width:100%">
+        <colgroup><col style="width:14%"><col style="width:9%"><col style="width:7%"><col style="width:12%"><col style="width:7%"><col style="width:9%"><col style="width:12%"><col style="width:7%"><col style="width:9%"><col style="width:8%"><col style="width:6%"></colgroup>
+<thead>
+          <tr>
+            <th>販売品名</th>
+            <th>販売品単価</th>
+            <th>出品数</th>
+            <th>第一次必要素材</th>
+            <th>仕入れ数</th>
+            <th>仕入れ値(単価)</th>
+            <th>第二次必要素材</th>
+            <th>仕入れ数</th>
+            <th>仕入れ値(単価)</th>
+            <th>純利益</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="profitBody"></tbody>
+      </table>
+      <div class="row" style="justify-content:flex-end"><span class="chip">合計純利益: <span id="profitSum">0</span></span></div>
+    </div>
+  </section>
+
+  <!-- Links -->
+  <section id="tab-links" style="display:none;margin-top:12px">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <b>関連サイト一覧</b>
+        <button class="btn" id="addLink">＋リンク追加</button>
+      </div>
+      <table>
+        <thead><tr><th style="width:40px"></th><th>名前</th><th>URL</th><th></th></tr></thead>
+        <tbody id="linkBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="toast" style="position:fixed;right:16px;top:16px;display:none;background:var(--card);border:1px solid var(--border);padding:8px 12px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:9999">保存しました</div>
+<div id="notiWrap" style="position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:9999"></div>
+
+<script>
+// ===== persistence =====
+const STORAGE_KEY = "ffxiv-task-toolkit-v1";
+const seed = {
+  theme:"eorzea",
+  uiTab:"overview",
+  filter:"all",
+  lastDay: todayStr(),
+  lastWeek: weekKey(),
+  sfxVol:1,
+  sfxMute:false,
+  sfxData:{ tab:{data:"", vol:1}, complete:{data:"", vol:1}, restore:{data:"", vol:1} },
+  tasks:[],
+  memo:"",
+  kinkaku:[],
+  links:[]
+};
+function migrate(s){
+  s=s||{};
+  if(!("kinkaku" in s)) s.kinkaku=[];
+  if(!("links" in s)) s.links=[];
+  if(!("memo" in s)) s.memo="";
+  if(!("tasks" in s)) s.tasks=[];
+  if(!("sfxVol" in s)) s.sfxVol=1;
+  if(!("sfxMute" in s)) s.sfxMute=false;
+  if(!("sfxData" in s)){
+    s.sfxData={ tab:{data:"", vol:1}, complete:{data:"", vol:1}, restore:{data:"", vol:1} };
+    if(s.sfx && typeof s.sfx==='object'){
+      if(s.sfx.tab) s.sfxData.tab.data = s.sfx.tab;
+      if(s.sfx.complete) s.sfxData.complete.data = s.sfx.complete;
+      if(s.sfx.restore) s.sfxData.restore.data = s.sfx.restore;
+    }
+    if(s.sfxVols && typeof s.sfxVols==='object'){
+      if(isFinite(s.sfxVols.tab)) s.sfxData.tab.vol = Number(s.sfxVols.tab);
+      if(isFinite(s.sfxVols.complete)) s.sfxData.complete.vol = Number(s.sfxVols.complete);
+      if(isFinite(s.sfxVols.restore)) s.sfxData.restore.vol = Number(s.sfxVols.restore);
+    }
+  }
+  s.tasks = (s.tasks||[]).map(t=>({
+    id: t.id || (Date.now()+"-"+Math.random().toString(16).slice(2)),
+    title: t.title || "(無題)",
+    type: (t.type==='daily' || t.type==='weekly' || t.type==='oneoff' || t.type==='goal') ? t.type : 'daily',
+    reward: t.reward || "",
+    notes: t.notes || "",
+    due: t.due || "",
+    done: !!t.done,
+    progress: isFinite(t.progress)? Number(t.progress) : 0,
+    createdAt: t.createdAt || Date.now(),
+    updatedAt: t.updatedAt || Date.now()
+  }));
+  s.kinkaku = (s.kinkaku||[]).map(r=>({
+    id: r.id || (Date.now()+"-"+Math.random().toString(16).slice(2)),
+    product: r.product || r.item || "",
+    unit: isFinite(r.unit)? Number(r.unit) : 0,
+    sellqty: isFinite(r.sellqty)? Number(r.sellqty) : 0,
+    p1: r.p1 || "",
+    p1qty: isFinite(r.p1qty)? Number(r.p1qty) : 0,
+    p1price: isFinite(r.p1price)? Number(r.p1price) : 0,
+    p2: r.p2 || "",
+    p2qty: isFinite(r.p2qty)? Number(r.p2qty) : 0,
+    p2price: isFinite(r.p2price)? Number(r.p2price) : 0
+  }));
+  
+  if(!("lastDay" in s)) s.lastDay = todayStr();
+  if(!("lastWeek" in s)) s.lastWeek = weekKey();
+return s;
+}
+let state = localStorage.getItem(STORAGE_KEY) ? migrate(JSON.parse(localStorage.getItem(STORAGE_KEY))) : migrate({...seed});
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function notify(msg, ms=1800){ const wrap=document.getElementById('notiWrap'); if(!wrap) return; const box=document.createElement('div'); box.className='card'; box.textContent=msg; wrap.appendChild(box); setTimeout(()=>{ box.style.opacity='0'; box.style.transition='opacity .25s'; setTimeout(()=> box.remove(), 300); }, ms);}
+
+// ===== time helpers =====
+function todayStr(){
+  const d=new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function weekKey(d=new Date()){
+  const e=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day=(e.getUTCDay()+6)%7; e.setUTCDate(e.getUTCDate()-day+3);
+  const firstThu=new Date(Date.UTC(e.getUTCFullYear(),0,4));
+  const week=1+Math.round(((e.getTime()-firstThu.getTime())/86400000-3)/7);
+  return e.getUTCFullYear()+"-W"+String(week).padStart(2,"0");
+}
+function uuid(){ return Date.now()+"-"+Math.random().toString(16).slice(2); }
+
+
+
+// ===== auto-reset for daily/weekly =====
+function autoResetIfNeeded(){
+  try{
+    const today = todayStr();
+    const wk = weekKey(new Date());
+    let changed = false;
+
+    if(state.lastDay !== today){
+      if(Array.isArray(state.tasks)){
+        state.tasks.forEach(t => { if(t && t.type==='daily') t.done = false; });
+      }
+      state.lastDay = today;
+      changed = true;
+    }
+    if(state.lastWeek !== wk){
+      if(Array.isArray(state.tasks)){
+        state.tasks.forEach(t => { if(t && t.type==='weekly') t.done = false; });
+      }
+      state.lastWeek = wk;
+      changed = true;
+    }
+    if(changed){
+      save();
+      if(typeof renderAll==='function') renderAll();
+      if(typeof notify==='function') notify('デイリー/ウィークリーを自動リセットしました');
+    }
+  }catch(e){ /* noop */ }
+}
+try{
+  autoResetIfNeeded();
+  window.addEventListener('focus', autoResetIfNeeded);
+  document.addEventListener('visibilitychange', autoResetIfNeeded);
+  setInterval(autoResetIfNeeded, 60*1000);
+}catch(e){}
+// ===== theme toggle =====
+function applyTheme(){ document.body.classList.toggle("tarkov", state.theme==="tarkov"); }
+applyTheme();
+document.getElementById("themeBtn").onclick=()=>{
+  state.theme = state.theme==="eorzea"?"tarkov":"eorzea"; save(); applyTheme();
+};
+
+// ===== toolbar actions =====
+document.getElementById("backupBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="ffxiv_tasks_backup_"+todayStr()+".json"; a.click();
+  notify("バックアップを作成しました（ダウンロード）");
+};
+document.getElementById("exportBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="ffxiv_tasks_"+todayStr()+".json"; a.click();
+  notify("エクスポートしました");
+};
+document.getElementById("importJson").onchange=(e)=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ state=migrate(JSON.parse(String(rd.result))); save(); renderAll(); notify("インポート完了"); }catch{ alert("JSON読み込み失敗"); } };
+  rd.readAsText(f);
+};
+document.getElementById("resetBtn").onclick=()=>{
+  if(!confirm("本当に初期化しますか？")) return;
+  try{ localStorage.removeItem(STORAGE_KEY);}catch(e){}
+  location.reload();
+};
+
+// ===== sound helpers =====
+function playSfx(kind){
+  try{
+    const master = state.sfxMute ? 0 : (state.sfxVol || 1);
+    const entry = (state.sfxData && state.sfxData[kind]) ? state.sfxData[kind] : null;
+    const data = entry ? (entry.data || "") : "";
+    const vol = entry ? (entry.vol ?? 1) : 1;
+    if(!data) return;
+    const audio = new Audio(data);
+    audio.volume = Math.max(0, Math.min(1, master * vol));
+    audio.play().catch(()=>{});
+  }catch(e){}
+}
+
+// ===== tabs (main) =====
+const tabBtns=[...document.querySelectorAll('nav.tabs .pill')];
+tabBtns.forEach(b=> b.onclick=()=>{
+  tabBtns.forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  const tab=b.getAttribute("data-tab");
+  state.uiTab=tab; save();
+  document.getElementById("tab-overview").style.display = tab==="overview"?"grid":"none";
+  document.getElementById("tab-tasks").style.display = tab==="tasks"?"flex":"none";
+  document.getElementById("tab-archive").style.display = tab==="archive"?"block":"none";
+  document.getElementById("tab-kinkaku").style.display = tab==="kinkaku"?"block":"none";
+  document.getElementById("tab-links").style.display = tab==="links"?"block":"none";
+  playSfx('tab');
+});
+
+// ===== filters =====
+function updateFilterButtons(){
+  document.querySelectorAll('[data-filter]').forEach(btn=>{
+    const is = btn.getAttribute('data-filter')===state.filter;
+    btn.classList.toggle('active', is);
+  });
+  document.querySelectorAll('[data-subfilter]').forEach(btn=>{
+    const is = btn.getAttribute('data-subfilter')===state.filter;
+    btn.classList.toggle('active', is);
+  });
+}
+[...document.querySelectorAll('[data-filter]')].forEach(b=>{
+  b.onclick=()=>{
+    state.filter=b.getAttribute("data-filter"); save();
+    renderOverview(); renderTasks(); updateFilterButtons();
+    playSfx('tab');
+  };
+  // hover color is via CSS
+});
+[...document.querySelectorAll('[data-subfilter]')].forEach(b=>{
+  b.onclick=()=>{
+    state.filter=b.getAttribute("data-subfilter"); save();
+    renderOverview(); renderTasks(); updateFilterButtons();
+    playSfx('tab');
+  };
+});
+
+// ===== new task form (deadline dropdowns) =====
+(function initDueDropdowns(){
+  const ySel = document.getElementById("nt-due-year");
+  const mSel = document.getElementById("nt-due-month");
+  const dSel = document.getElementById("nt-due-day");
+  const hidden = document.getElementById("nt-due");
+  const typeSel = document.getElementById("nt-type");
+  const wrap = document.getElementById("nt-due-wrap");
+  if(!ySel||!mSel||!dSel||!hidden||!typeSel||!wrap) return;
+  const y0 = new Date().getFullYear();
+  for(let y=y0-1; y<=y0+5; y++){ const o=document.createElement('option'); o.value=String(y); o.textContent=String(y); ySel.appendChild(o); }
+  for(let m=1;m<=12;m++){ const o=document.createElement('option'); o.value=String(m).padStart(2,'0'); o.textContent=m+'月'; mSel.appendChild(o); }
+  function refreshDays(){
+    const y = Number(ySel.value||y0);
+    const m = Number(mSel.value||1);
+    const last = new Date(y, m, 0).getDate();
+    dSel.innerHTML='';
+    for(let d=1; d<=last; d++){ const o=document.createElement('option'); o.value=String(d).padStart(2,'0'); o.textContent=d+'日'; dSel.appendChild(o); }
+  }
+  ySel.value=String(y0); mSel.value=String(new Date().getMonth()+1).padStart(2,'0'); refreshDays();
+  dSel.value=String(new Date().getDate()).padStart(2,'0');
+  function syncHidden(){ hidden.value = ySel.value+'-'+mSel.value+'-'+dSel.value; }
+  ySel.onchange=()=>{ refreshDays(); syncHidden(); };
+  mSel.onchange=()=>{ refreshDays(); syncHidden(); };
+  dSel.onchange=syncHidden;
+  syncHidden();
+  function toggle(){ wrap.style.display = (typeSel.value==='goal') ? 'block' : 'none'; }
+  typeSel.onchange=toggle; toggle();
+})();
+document.getElementById("newTaskForm").onsubmit=(e)=>{
+  e.preventDefault();
+  const title=document.getElementById("nt-title").value.trim();
+  if(!title){ notify("タイトルを入力してください"); return; }
+  const reward=document.getElementById("nt-reward").value.trim();
+  const notes=document.getElementById("nt-notes").value.trim();
+  const typ=document.getElementById("nt-type").value;
+  const dueVal=(typ==='goal') ? (document.getElementById("nt-due").value||"") : "";
+  const t={id:uuid(), title, type:typ, reward, notes, due: dueVal, done:false, progress:0, createdAt:Date.now(), updatedAt:Date.now()};
+  state.tasks=[t, ...state.tasks]; save(); renderAll(); notify("タスクを追加しました");
+  e.target.reset();
+};
+
+// ===== overview table renderer =====
+function renderOverviewTable(){
+  const tbody = document.getElementById('overviewTaskTableBody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  let tasks = state.filter==="all" ? (state.tasks||[]) : (state.tasks||[]).filter(t=> t.type===state.filter);
+  tasks = tasks.filter(t=>!t.done);
+  if(!tasks.length){
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 4;
+    td.className = 'muted';
+    td.textContent = 'タスクはまだありません。右の「新規タスク」から追加してください。';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  tasks.forEach(t=>{
+    const tr = document.createElement('tr');
+
+    const tdOp = document.createElement('td');
+    const doneBtn = document.createElement('button');
+    doneBtn.className = 'btn success done-btn';
+    doneBtn.textContent = '完了';
+    doneBtn.onclick = ()=>{
+      t.done = true; t.updatedAt = Date.now(); save(); renderAll(); notify('タスクを完了しました'); playSfx('complete');
+    };
+    tdOp.appendChild(doneBtn);
+
+    const tdTitle = document.createElement('td');
+    const titleEl = document.createElement('div');
+    titleEl.className = 'task-title';
+    titleEl.style.fontWeight = '600';
+    titleEl.textContent = t.title || '(無題)';
+    const meta = document.createElement('div');
+    meta.className = 'muted';
+    meta.style.fontSize = '12px';
+    meta.textContent = (t.type === 'daily' ? 'Daily' : (t.type === 'weekly' ? 'Weekly' : (t.type === 'goal' ? 'Goal' : 'One-off')));
+    tdTitle.append(titleEl, meta);
+    if (t.type === 'goal' && (t.due||"").trim()) {
+      const dueDiv = document.createElement('div');
+      dueDiv.style.fontSize='12px';
+      const iso = String(t.due);
+      const disp = iso.includes('-') ? iso.split('-').map((v,i)=> i>0 ? String(v).padStart(2,'0') : v).join('/') : iso;
+      try{
+        const today = new Date(); today.setHours(0,0,0,0);
+        const dd = new Date(iso); dd.setHours(0,0,0,0);
+        if (isFinite(dd.getTime()) && dd < today) { dueDiv.style.color = '#b44'; dueDiv.style.fontWeight = '600'; }
+      }catch(_){}
+      dueDiv.textContent = `期限: ${disp}`;
+      tdTitle.appendChild(dueDiv);
+    }
+
+    const tdReward = document.createElement('td');
+    tdReward.textContent = t.reward || '—';
+    tdReward.className = 'muted';
+
+    const tdNotes = document.createElement('td');
+    tdNotes.textContent = (t.notes || '').trim() ? t.notes : '—';
+    tdNotes.className = 'task-notes muted';
+
+    tr.append(tdOp, tdTitle, tdReward, tdNotes);
+    tbody.appendChild(tr);
+  });
+}
+function renderOverview(){
+  const tasks = state.filter==="all" ? state.tasks : state.tasks.filter(t=> t.type===state.filter);
+  const total = tasks.length||1;
+  const done = tasks.filter(t=>t.done).length;
+  const pct = Math.round(done/total*100);
+  document.getElementById("progressPct").textContent=pct+"%";
+  document.getElementById("progressDone").textContent=done;
+  document.getElementById("progressTotal").textContent=total;
+  document.getElementById("progressBar").style.width=pct+"%";
+  renderOverviewTable();
+}
+
+// ===== tasks tab =====
+function enableTaskDnD(container){
+  const cards = Array.from(container.querySelectorAll('.card.hoverable'));
+  const placeholder = document.createElement('div'); placeholder.className='drag-placeholder';
+  let dragging = null, fromIndex = null;
+
+  cards.forEach((card, idx)=>{
+    const handle = card.querySelector('.drag-handle'); if(!handle) return;
+    handle.draggable = true;
+    handle.addEventListener('dragstart',(e)=>{
+      dragging = card; fromIndex = idx; card.classList.add('dragging');
+      placeholder.style.height = card.offsetHeight+'px';
+      card.parentElement.insertBefore(placeholder, card.nextSibling);
+      e.dataTransfer.effectAllowed='move';
+      try{ e.dataTransfer.setData('text/plain','drag'); }catch(_){}
+    });
+    handle.addEventListener('dragend',()=>{
+      card.classList.remove('dragging');
+      if(placeholder.parentElement) placeholder.parentElement.removeChild(placeholder);
+    });
+    card.addEventListener('dragover',(e)=>{
+      if(!dragging) return; e.preventDefault();
+      const rect = card.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height/2;
+      card.parentElement.insertBefore(placeholder, before? card : card.nextSibling);
+    });
+    card.addEventListener('drop',(e)=>{
+      e.preventDefault();
+      const rows = Array.from(container.querySelectorAll('.card.hoverable'));
+      const targetIndex = rows.indexOf(placeholder) === -1 ? rows.indexOf(card) : rows.indexOf(placeholder);
+      const visible = (state.filter==="all" ? state.tasks : state.tasks.filter(t=>t.type===state.filter)).filter(t=>!t.done);
+      const ids = visible.map(t=>t.id);
+      const fromId = ids[fromIndex];
+      const toId = ids[Math.min(targetIndex, ids.length-1)];
+      const order = state.tasks.map(t=>t.id);
+      const fromPos = order.indexOf(fromId);
+      const toPos = order.indexOf(toId);
+      if(fromPos>=0 && toPos>=0 && fromPos!==toPos){
+        const [moved] = state.tasks.splice(fromPos,1);
+        state.tasks.splice(toPos,0,moved);
+        save(); renderAll(); notify('並び替えました');
+      }
+    });
+  });
+}
+function renderTasks(){
+  const list=document.getElementById("taskList"); list.innerHTML="";
+  const tasks = state.filter==="all" ? state.tasks : state.tasks.filter(t=> t.type===state.filter);
+  document.getElementById("taskCount").textContent = tasks.filter(t=>!t.done).length;
+  tasks.filter(t=>!t.done).forEach(t=>{
+    const card=document.createElement("div"); card.className="card hoverable";
+    const top=document.createElement("div"); top.className="row"; top.style.alignItems="center";
+    const handle=document.createElement("button"); handle.className="drag-handle"; handle.textContent="≡"; top.appendChild(handle);
+    const doneBtn=document.createElement("button"); doneBtn.className="btn success done-btn"; doneBtn.textContent="完了"; doneBtn.onclick=()=>{ t.done=true; t.updatedAt=Date.now(); save(); renderAll(); notify('タスクを完了しました'); playSfx('complete'); };
+    const ttl=document.createElement("div"); ttl.style.fontWeight="600"; ttl.textContent=t.title; ttl.style.minWidth="160px";
+    const chip=document.createElement("span"); chip.className="chip"; chip.textContent=t.type==="daily"?"Daily":t.type==="weekly"?"Weekly":(t.type==="goal"?"Goal":"One-off");
+    const reward=document.createElement("div"); reward.className="muted"; reward.textContent="報酬: "+(t.reward||"—");
+    top.append(doneBtn, ttl, chip, reward);
+    card.appendChild(top);
+
+    const bar=document.createElement("div"); bar.className="progress"; bar.style.marginTop="8px";
+    const fill=document.createElement("div"); fill.style.width=(t.progress||0)+"%"; bar.appendChild(fill); card.appendChild(bar);
+
+    const ed=document.createElement("div"); ed.className="grid g-2"; ed.style.marginTop="8px";
+    const ti=document.createElement("input"); ti.type="text"; ti.placeholder="タイトル"; ti.value=t.title; ti.oninput=e=>{t.title=e.target.value; t.updatedAt=Date.now(); save();};
+    const r=document.createElement("input"); r.type="text"; r.placeholder="報酬"; r.value=t.reward||""; r.oninput=e=>{t.reward=e.target.value; t.updatedAt=Date.now(); save();};
+    const n=document.createElement("textarea"); n.rows=2; n.placeholder="メモ"; n.value=t.notes||""; n.oninput=e=>{t.notes=e.target.value; t.updatedAt=Date.now(); save();};
+    const p=document.createElement("div"); p.className="row";
+    const up=document.createElement("button"); up.className="btn"; up.textContent="+10%"; up.onclick=()=>{ t.progress=Math.min(100,(t.progress||0)+10); t.updatedAt=Date.now(); save(); renderTasks(); };
+    const dn=document.createElement("button"); dn.className="btn"; dn.textContent="-10%"; dn.onclick=()=>{ t.progress=Math.max(0,(t.progress||0)-10); t.updatedAt=Date.now(); save(); renderTasks(); };
+    const del=document.createElement("button"); del.className="btn"; del.textContent="削除"; del.onclick=()=>{ state.tasks = state.tasks.filter(x=>x.id!==t.id); save(); renderAll(); };
+    p.append(up,dn,del);
+    ed.append(ti,r,n,p);
+    card.appendChild(ed);
+
+    list.appendChild(card);
+  });
+  enableTaskDnD(list);
+
+  // archive side
+  const arch = state.tasks.filter(t=>t.done && (state.filter==="all" || t.type===state.filter));
+  document.getElementById("archCount").textContent=arch.length;
+  const archList=document.getElementById("archList"); archList.innerHTML="";
+  arch.forEach(t=>{
+    const row=document.createElement("div"); row.className="row card";
+    const undo=document.createElement("button"); undo.className="btn revert"; undo.textContent="戻す"; undo.onclick=()=>{ t.done=false; t.updatedAt=Date.now(); save(); renderAll(); notify('コンプリートから戻しました'); playSfx('restore'); };
+    const b=document.createElement("b"); b.textContent=t.title;
+    const info=document.createElement("span"); info.className="muted"; info.textContent="報酬: "+(t.reward||"—");
+    row.append(undo,b,info);
+    archList.appendChild(row);
+  });
+}
+
+// ===== kinkaku =====
+function renderKinkaku(){
+  const tbody = document.getElementById("profitBody"); if(!tbody) return;
+  tbody.innerHTML="";
+  (state.kinkaku||[]).forEach(row=>{
+    const tr=document.createElement("tr"); tr.dataset.rowid=row.id;
+    function tdInput(type, val, on, attrs={}){
+      const td=document.createElement("td"); const i=document.createElement("input"); i.type=type;
+      if(type==="number"){ i.step="1"; i.inputMode="decimal"; }
+      i.value=(val ?? (type==="number"?0:""));
+      Object.assign(i, attrs);
+      i.oninput=e=>{ on(type==="number" ? Number(e.target.value||0) : e.target.value); save(); recomputeKinkaku(); };
+      td.appendChild(i); return td;
+    }
+    tr.appendChild(tdInput("text", row.product, v=>row.product=v));
+    tr.appendChild(tdInput("number", row.unit, v=>row.unit=v));
+    tr.appendChild(tdInput("number", row.sellqty, v=>row.sellqty=v));
+    tr.appendChild(tdInput("text", row.p1, v=>row.p1=v));
+    tr.appendChild(tdInput("number", row.p1qty, v=>row.p1qty=v));
+    tr.appendChild(tdInput("number", row.p1price, v=>row.p1price=v));
+    tr.appendChild(tdInput("text", row.p2, v=>row.p2=v));
+    tr.appendChild(tdInput("number", row.p2qty, v=>row.p2qty=v));
+    tr.appendChild(tdInput("number", row.p2price, v=>row.p2price=v));
+    const tdProfit=document.createElement("td"); tdProfit.dataset.role="profit"; tdProfit.textContent="0"; tr.appendChild(tdProfit);
+    const tdDel=document.createElement("td"); const del=document.createElement("button"); del.className="btn"; del.textContent="削除"; del.onclick=()=>{ state.kinkaku = state.kinkaku.filter(x=>x.id!==row.id); save(); renderKinkaku(); recomputeKinkaku(); }; tdDel.appendChild(del); tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  });
+  recomputeKinkaku();
+}
+function recomputeKinkaku(){
+  const tbody = document.getElementById("profitBody"); if(!tbody) return;
+  let sum=0;
+  (state.kinkaku||[]).forEach(row=>{
+    const cost = (row.p1price||0)*(row.p1qty||0) + (row.p2price||0)*(row.p2qty||0);
+    const income = (row.unit||0)*(row.sellqty||0);
+    const profit = income - cost;
+    sum += profit;
+    const tr = tbody.querySelector('tr[data-rowid="'+row.id+'"]');
+    if(tr){
+      const pcell = tr.querySelector('[data-role="profit"]');
+      if(pcell) pcell.textContent = (isFinite(profit)?profit:0).toLocaleString();
+    }
+  });
+  const sumEl = document.getElementById("profitSum"); if(sumEl) sumEl.textContent = (isFinite(sum)?sum:0).toLocaleString();
+}
+document.getElementById("addProfitRow").onclick=()=>{
+  if(!Array.isArray(state.kinkaku)) state.kinkaku=[];
+  state.kinkaku.push({id:uuid(), product:"", unit:0, sellqty:0, p1:"", p1qty:0, p1price:0, p2:"", p2qty:0, p2price:0});
+  save(); renderKinkaku(); notify('金策行を追加しました', 900);
+};
+
+// ===== links (drag & drop persisted) =====
+function renderLinks(){
+  const tbody=document.getElementById("linkBody"); if(!tbody) return;
+  tbody.innerHTML="";
+  (state.links||[]).forEach(l=>{
+    const tr=document.createElement("tr"); tr.dataset.id=l.id || (l.id=uuid());
+    const dragTd=document.createElement('td'); const handle=document.createElement('button'); handle.className='drag-handle'; handle.textContent='≡'; handle.draggable=true; dragTd.appendChild(handle);
+    const nameTd=document.createElement("td"); const name=document.createElement("input"); name.type="text"; name.value=l.name||""; name.placeholder="名前"; name.oninput=e=>{ l.name=e.target.value; save(); }; nameTd.appendChild(name);
+    const urlTd=document.createElement("td"); const url=document.createElement("input"); url.type="url"; url.value=l.url||""; url.placeholder="https://..."; url.oninput=e=>{ l.url=e.target.value; save(); }; urlTd.appendChild(url);
+    const opTd=document.createElement("td");
+    const go=document.createElement("button"); go.className="btn"; go.textContent="開く"; go.onclick=()=>{ const u=(url.value||"").trim(); if(u) window.open(u, "_blank"); else notify("URLが未入力です"); };
+    const del=document.createElement("button"); del.className="btn"; del.textContent="削除"; del.onclick=()=>{ if(!confirm("このリンクを削除しますか？")) return; state.links.splice(state.links.indexOf(l),1); save(); renderLinks(); notify('リンクを削除しました'); };
+    opTd.append(go, del);
+    tr.append(dragTd, nameTd, urlTd, opTd);
+    tbody.appendChild(tr);
+  });
+  enableLinksDnD(tbody);
+}
+
+function enableLinksDnD(tbody){
+  let draggingRow = null;
+  let fromIndex = null;
+  const placeholder = document.createElement('tr');
+  placeholder.className = 'drag-placeholder';
+  placeholder.innerHTML = '<td colspan="4"></td>';
+
+  function rows(){ return Array.from(tbody.querySelectorAll('tr[data-id]')); }
+
+  // Clean up any stray placeholders (prevents "green cells multiplying")
+  function removePlaceholder(){
+    tbody.querySelectorAll('tr.drag-placeholder').forEach(p=>p.remove());
+  }
+
+  rows().forEach((row, idx)=>{
+    const handle = row.querySelector('.drag-handle');
+    if(!handle) return;
+    handle.draggable = true;
+
+    handle.addEventListener('dragstart', (e)=>{
+      draggingRow = row;
+      fromIndex = idx;
+      removePlaceholder();
+      placeholder.style.height = row.offsetHeight + 'px';
+      tbody.insertBefore(placeholder, row.nextSibling);
+      e.dataTransfer.effectAllowed = 'move';
+      try{ e.dataTransfer.setData('text/plain', 'drag'); }catch(_){}
+    });
+
+    handle.addEventListener('dragend', ()=>{
+      draggingRow = null;
+      removePlaceholder();
+    });
+  });
+
+  tbody.addEventListener('dragover', (e)=>{
+    if(!draggingRow) return;
+    e.preventDefault();
+    const list = rows();
+    if(list.length === 0) return;
+
+    // Find closest row midpoint to the cursor
+    let closest = null, dist = 1e9;
+    list.forEach(r=>{
+      const rect = r.getBoundingClientRect();
+      const mid = rect.top + rect.height/2;
+      const d = Math.abs(e.clientY - mid);
+      if(d < dist){ dist = d; closest = r; }
+    });
+    if(closest){
+      const rect = closest.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height/2;
+      tbody.insertBefore(placeholder, before ? closest : closest.nextSibling);
+    }
+  });
+
+  tbody.addEventListener('drop', (e)=>{
+    e.preventDefault();
+    if(!draggingRow) return;
+
+    // Insert the dragged row at the placeholder position
+    tbody.insertBefore(draggingRow, placeholder);
+
+    // Compute new order by DOM sequence
+    const newIds = rows().map(r=>r.dataset.id);
+    const old = state.links.slice();
+    state.links = newIds.map(id => old.find(x => (x.id||'') === id)).filter(Boolean);
+
+    save();
+    renderLinks();
+    notify('リンクの順序を変更しました');
+
+    draggingRow = null;
+    removePlaceholder();
+  });
+}
+document.getElementById("addLink").onclick=()=>{
+  if(!Array.isArray(state.links)) state.links=[];
+  state.links.push({id:uuid(), name:"", url:""}); save(); renderLinks();
+};
+
+// ===== clocks =====
+(function clock(){
+  function tick(){
+    const now=Date.now();
+    const tzIntl = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+    document.getElementById("tz").textContent = tzIntl;
+    const lt = new Date(now);
+    document.getElementById("ltTime").textContent = String(lt.getHours()).padStart(2,"0")+":"+String(lt.getMinutes()).padStart(2,"0");
+    document.getElementById("ltDate").textContent = lt.getFullYear()+"/"+String(lt.getMonth()+1).padStart(2,"0")+"/"+String(lt.getDate()).padStart(2,"0");
+    const etDate = new Date(now * 20.5714285714);
+    document.getElementById("etTime").textContent = String(etDate.getUTCHours()).padStart(2,"0")+":"+String(etDate.getUTCMinutes()).padStart(2,"0");
+    document.getElementById("etDate").textContent = etDate.getUTCFullYear()+"/"+String(etDate.getUTCMonth()+1).padStart(2,"0")+"/"+String(etDate.getUTCDate()).padStart(2,"0");
+  }
+  tick(); setInterval(tick, 1000);
+})();
+
+// ===== Sound UI bind =====
+function bindSfxUI(){
+  // master
+  const vol=document.getElementById('sfxVol'); const mute=document.getElementById('sfxMute');
+  if(vol){ vol.value = String(state.sfxVol ?? 1); vol.oninput = (e)=>{ state.sfxVol = Number(e.target.value||1); save(); }; }
+  if(mute){ mute.checked = !!state.sfxMute; mute.onchange = (e)=>{ state.sfxMute = !!e.target.checked; save(); }; }
+  // per-sound
+  ["tab","complete","restore"].forEach(k=>{
+    const volEl=document.getElementById('sfxVol-'+k);
+    const fileEl=document.getElementById('sfxFile-'+k);
+    const playEl=document.getElementById('sfxPlay-'+k);
+    const clrEl=document.getElementById('sfxClear-'+k);
+    if(volEl){ volEl.value = String((state.sfxData?.[k]?.vol ?? 1)); volEl.oninput=(e)=>{ if(!state.sfxData[k]) state.sfxData[k]={data:"",vol:1}; state.sfxData[k].vol = Number(e.target.value||1); save(); }; }
+    if(fileEl){ fileEl.onchange=(e)=>{
+      const f=e.target.files?.[0]; if(!f) return;
+      const rd=new FileReader(); rd.onload=()=>{ if(!state.sfxData[k]) state.sfxData[k]={data:"",vol:1}; state.sfxData[k].data=String(rd.result||""); save(); notify('サウンドを保存しました'); }; rd.readAsDataURL(f);
+    }; }
+    if(playEl){ playEl.onclick=(e)=>{ e.preventDefault(); playSfx(k); }; }
+    if(clrEl){ clrEl.onclick=(e)=>{ e.preventDefault(); if(!state.sfxData[k]) state.sfxData[k]={data:"",vol:1}; if(!confirm('このサウンドをクリアしますか？')) return; state.sfxData[k].data=""; save(); notify('サウンドをクリアしました'); }; }
+  });
+}
+
+// ===== initial render =====
+function renderAll(){ renderOverview(); renderTasks(); renderKinkaku(); renderLinks(); bindSfxUI(); document.getElementById('memo').value = state.memo||""; }
+document.getElementById('memo').oninput = (e)=>{ state.memo=e.target.value; save(); };
+renderAll();
+// initial tab visibility
+(function initTabs(){
+  document.querySelectorAll("#tab-overview,#tab-tasks,#tab-archive,#tab-kinkaku,#tab-links").forEach(s=> s.style.display="none");
+  const initial = state.uiTab || "overview";
+  const btn = document.querySelector(`.pill[data-tab="${initial}"]`) || document.querySelector('.pill[data-tab="overview"]');
+  if(btn && typeof btn.click==="function") btn.click(); else { document.getElementById("tab-overview").style.display="grid"; }
+})();
+</script>
+</body>
+</html>
